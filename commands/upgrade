@@ -20,20 +20,20 @@ while (@ARGV) {
 }
 
 # CHECK THE LOCK FILE
-if (-e '/home/code/.genesis/lockfile') {
-	die "A lockfile exists at '/home/code/.genesis/lockfile'. Maybe the last upgrade didn't finish?";
+if (-e '/home/agent-genesis/.genesis/lockfile') {
+	die "A lockfile exists at '/home/agent-genesis/.genesis/lockfile'. Maybe the last upgrade didn't finish?";
 }
 
 # MAKE SURE THE .genisis DIR EXISTS
-if (! -d '/home/code/.genesis') {
-	safesys("sudo -u code mkdir -p /home/code/.genesis");
+if (! -d '/home/agent-genesis/.genesis') {
+	safesys("sudo -u agent-genesis mkdir -p /home/agent-genesis/.genesis");
 }
 
 # CREATE A LOCKFILE
-safesys("sudu -u code touch /home/code/.genesis/lockfile");
+safesys("sudu -u agent-genesis touch /home/agent-genesis/.genesis/lockfile");
 
 # WHAT IS OUR LAST RELEASE?
-my $last_release_file = "/home/code/.genesis/current_release";
+my $last_release_file = "/home/agent-genesis/.genesis/current_release";
 
 my $last_release = '';
 if (-e $last_release_file) {
@@ -44,13 +44,13 @@ if (-e $last_release_file) {
 }
 
 # CHANGE OUR WORKING DIR
-chdir("/home/code/repo");
+chdir("/home/agent-genesis/repo");
 
 # FETCH LATEST INTO THE REPO
-safesys("sudo -u code git fetch") unless $f_nofetch;
+safesys("sudo -u agent-genesis git fetch") unless $f_nofetch;
 
 # FIGURE OUT WHICH RELEASES EXIST
-my $tags = `sudo -u code git tag -l`;
+my $tags = `sudo -u agent-genesis git tag -l`;
 chomp $tags;
 
 # FIGURE OUT WHICH TAGS TO ACTUALLY APPLY FOR EACH RELEASE
@@ -73,27 +73,28 @@ foreach (@releases_to_run) {
 }
 
 # REMOVE THE LOCKFILE
-safesys("sudu -u code rm /home/code/.genesis/lockfile");
+safesys("sudu -u agent-genesis rm /home/agent-genesis/.genesis/lockfile");
 
 sub handle_release {
 	my ($tag, $release) = @_;
 	
 	print "-- MIGRATING TO RELEASE $tag\n";
 
-	safesys("sudo -u code git checkout release");
-	safesys("sudo -u code git reset --hard $tag");
+	safesys("sudo -u agent-genesis git checkout release");
+	safesys("sudo -u agent-genesis git reset --hard $tag");
 	
 	foreach my $migration (sort glob "./migrations/$release-*") {
 		print "-- MIGRATION $migration\n";
 		safesys($migration);
 	}
 
-	safesys("sudo -u code -s 'echo $release > $last_release_file'");
+	safesys("sudo -u agent-genesis -s 'echo $release > $last_release_file'");
 	
 	print "-- SUCCESSFULLY MIGRATED TO RELEASE $tag\n\n";
 }
 
 sub safesys {
+	print '$ ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
 		die join(' ', @_) . "\nexit code: $exit_code\n$!";

@@ -11,10 +11,12 @@ if (cwd() ne '/root') {
 # IF WE DON'T HAVE A KEY YET, MAKE IT
 if (! -e "/root/.ssh/id_rsa.pub") {
 	print "-- GENERATING RSA KEY FOR USE WITH REMOTE GIT REPO\n";
-	system("ssh-keygen -t rsa -C genesis-deployment");
-	print "\nStep 1) Add the following key to github:\n\n";
-	system("cat /root/.ssh/id_rsa.pub");
-	print "\nStep 2) Run bootstrap again like this: ./bootstrap <git-repo-url>\n";
+	safesys("ssh-keygen -t rsa -C genesis-deployment");
+	
+	print "\n-- FINISHED. NEXT STEPs:\n";
+	print "1) Add the following key to github:\n\n";
+	safesys("cat /root/.ssh/id_rsa.pub");
+	print "\n2) \$ ./bootstrap <git-repo-url>\n";
 	exit;
 }
 
@@ -26,9 +28,19 @@ if ($git_repo eq '') {
 }
 
 print "-- INSTALLING GIT\n";
-system("apt-get install -y git-core");
+safesys("apt-get install -y git-core");
 
 print "-- CLONING GIT REPO\n";
-system("git clone $git_repo repo");
+safesys("git clone $git_repo repo");
 
-print "\nnext, do: ./repo/commands/install <admin-username> <environment>\n";
+print "-- FINISHED. NEXT STEP:\n";
+print "\$ ./repo/commands/install -e [development|production] -a <your-username>\n";
+
+sub safesys {
+	print '$ ', join(' ', @_), "\n";
+	my $exit_code = system(@_);
+	if ($exit_code != 0) {
+		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+	}
+	return undef;
+}

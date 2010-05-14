@@ -1,65 +1,89 @@
-#!/bin/bash
+#!/usr/bin/perl
 
-if [ `id -u` -ne 0 ]; then
-	echo "You must run this as root"
-	exit
-fi
+use strict;
+use feature qw(switch);
+use autodie qw(:default);
 
-if [ ! "$1" ]; then
-	echo "You must pass admin username as argument 1"
-	exit
-fi
+run();
 
-if [ ! "$2" ]; then
-	echo "You must pass environment as argument 2"
-	exit
-fi
+sub run {
+	if (`id -u` ne '0') {
+		die "you must run this as root";
+	}
 
-# KILL THE BOOTSTRAP FILE
-rm bootstrap.pl
+	my $environment = 'production';
+	my $admin_username = undef;
+	
+	while (@ARGV) {
+		given (shift @ARGV) {
+			when (['-a', '--admin-username']) {
+				$admin_username = shift @ARGV;
+			}
+			when (['-e', '--environment']) {
+				$environment = shift @ARGV;
+			}
+			default {
+				die "unexpected argument: $_";
+			}
+		}
+	}
+	
+	if ($admin_username eq '') {
+		die "you must choose an admin username with -a";
+	}
+	
+	# REMOVE THE BOOTSTRAP FILE
+	safesys("rm bootstrap.pl");
+	
+	# UPGRADE THE CORE SOFTWARE
+	print "-- UPGRADING CORE SOFTWARE\n";
+	safesys("apt-get update -y");
+	safesys("apt-get upgrade -y");
+	
+	# CREATE EACH OF OUR ACCESS GROUPS
+	safesys("groupadd access-genesis");
+	safesys("groupadd access-prime");
+	safesys("groupadd access-admin");
+	
+	# CREATE THE GENESIS AGENT AND GIVE HIM THE REPO
+	safesys("useradd -s /bin/bash -m -g access-genesis agent-genesis");
+	safesys("chmod 750 /home/agent-genesis");
+	
+	safesys("mv repo /home/agent-genesis/repo");
+	safesys("chown -R agent-genesis:access-genesis /home/agent-genesis/repo");
+	safesys("sudo -u agent-genesis mkdir /home/agent-genesis/.ssh");
+	safesys("mv .ssh/id_rsa /home/agent-genesis/.ssh/");
+	safesys("mv .ssh/id_rsa.pub /home/agent-genesis/.ssh/");
+	safesys("chown agent-genesis:access-genesis /home/agent-genesis/.ssh/id_rsa");
+	safesys("chown agent-genesis:access-genesis /home/agent-genesis/.ssh/id_rsa.pub");
+	safesys("chmod 750 /home/agent-genesis/.ssh");
+	
+	# CREATE A RELEASE BRANCH IN THE REPO
+	chdir("/home/agent-genesis/repo");
+	safesys("sudo -u agent-genesis git branch release");
+	
+	# CREATE THE PRIME AGENT
+	safesys("useradd -s /bin/bash -m -g access-prime -G access-genesis agent-prime");
+	safesys("chmod 750 /home/agent-prime");
+	safesys("ln -s /home/agent-genesis/repo/environments/$environment /home/agent-prime/environment");
+	
+	# CREATE THE FIRST ADMIN USER
+	safesys("useradd -s /bin/bash -m -g access-admin -G sudo,access-genesis,access-agent admin-$admin_username");
+	print "-- ENTER PASSWORD FOR admin-$admin_username\n";
+	safesys("passwd admin-$admin_username");
+	
+	# AND WE'RE DONE!
+	print "-- DONE INSTALLING. NEXT STEPS:\n";
+	print "1) log out\n";
+	print "2) log in as admin-$admin_username\n";
+	print "3) \$ sudo /home/agent-genesis/repo/commands/upgrade\n";
+}
 
-# UPGRADE CORE SOFTWARE
-echo "-- UPGRADING CORE SOFTWARE"
-apt-get update -y
-apt-get upgrade -y
-
-# SET UP code USER AND GROUP
-echo "-- SETTING UP code USER"
-groupadd code
-useradd -s /bin/bash -m -g code code
-chmod 750 /home/code
-
-# MOVE THE REPOSITORY OVER THERE
-mv repo /home/code/repo
-chown -R code:code /home/code/repo
-sudo -u code mkdir /home/code/.ssh
-mv .ssh/id_rsa /home/code/.ssh/
-mv .ssh/id_rsa.pub /home/code/.ssh/
-chown code:code /home/code/.ssh/id_rsa
-chown code:code /home/code/.ssh/id_rsa.pub
-
-# CREATE A RELEASE BRANCH ON THE REPOSITORY
-cd /home/code/repo
-sudo -u code git branch release
-
-# SET UP content USER AND GROUP
-echo "-- SETTING UP content USER"
-groupadd content
-useradd -s /bin/bash -m -g content content
-chmod 750 /home/content
-
-# SET UP agent USER AND GROUP
-echo "-- SETTING UP agent USER"
-groupadd agent
-useradd -s /bin/bash -m -g agent -G code agent
-
-# LINK THE ENVIRONMENT TO THE AGENT USER
-ln -s "/home/code/repo/environments/$2" /home/agent/environment
-
-# SET UP admin user
-groupadd admin
-useradd -s /bin/bash -m -g admin -G sudo,code,content,agent "admin-$1"
-echo "-- ENTER PASSWORD FOR admin-$1"
-passwd "admin-$1"
-
-echo "-- DONE BOOTSTRAPPING. LOG OUT AND LOG BACK IN AS admin-$1"
+sub safesys {
+	print '$ ', join(' ', @_), "\n";
+	my $exit_code = system(@_);
+	if ($exit_code != 0) {
+		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+	}
+	return undef;
+}
