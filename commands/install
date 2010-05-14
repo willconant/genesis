@@ -1,0 +1,65 @@
+#!/bin/bash
+
+if [ `id -u` -ne 0 ]; then
+	echo "You must run this as root"
+	exit
+fi
+
+if [ ! "$1" ]; then
+	echo "You must pass admin username as argument 1"
+	exit
+fi
+
+if [ ! "$2" ]; then
+	echo "You must pass environment as argument 2"
+	exit
+fi
+
+# KILL THE BOOTSTRAP FILE
+rm bootstrap.pl
+
+# UPGRADE CORE SOFTWARE
+echo "-- UPGRADING CORE SOFTWARE"
+apt-get update -y
+apt-get upgrade -y
+
+# SET UP code USER AND GROUP
+echo "-- SETTING UP code USER"
+groupadd code
+useradd -s /bin/bash -m -g code code
+chmod 750 /home/code
+
+# MOVE THE REPOSITORY OVER THERE
+mv repo /home/code/repo
+chown -R code:code /home/code/repo
+sudo -u code mkdir /home/code/.ssh
+mv .ssh/id_rsa /home/code/.ssh/
+mv .ssh/id_rsa.pub /home/code/.ssh/
+chown code:code /home/code/.ssh/id_rsa
+chown code:code /home/code/.ssh/id_rsa.pub
+
+# CREATE A RELEASE BRANCH ON THE REPOSITORY
+cd /home/code/repo
+sudo -u code git branch release
+
+# SET UP content USER AND GROUP
+echo "-- SETTING UP content USER"
+groupadd content
+useradd -s /bin/bash -m -g content content
+chmod 750 /home/content
+
+# SET UP agent USER AND GROUP
+echo "-- SETTING UP agent USER"
+groupadd agent
+useradd -s /bin/bash -m -g agent -G code agent
+
+# LINK THE ENVIRONMENT TO THE AGENT USER
+ln -s "/home/code/repo/environments/$2" /home/agent/environment
+
+# SET UP admin user
+groupadd admin
+useradd -s /bin/bash -m -g admin -G sudo,code,content,agent "admin-$1"
+echo "-- ENTER PASSWORD FOR admin-$1"
+passwd "admin-$1"
+
+echo "-- DONE BOOTSTRAPPING. LOG OUT AND LOG BACK IN AS admin-$1"

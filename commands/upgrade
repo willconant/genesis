@@ -1,0 +1,102 @@
+#!/usr/bin/perl
+
+use strict;
+use feature qw(switch);
+use autodie qw(:default);
+
+# DEFAULT SETTINGS
+my $f_nofetch = 0;
+
+# SCAN FOR FLAGS
+while (@ARGV) {
+	given (shift @ARGV) {
+		when ('--nofetch') {
+			$f_nofetch = 1;
+		}
+		default {
+			die "unexpected argument: $_";
+		}
+	}
+}
+
+# CHECK THE LOCK FILE
+if (-e '/home/code/.genesis/lockfile') {
+	die "A lockfile exists at '/home/code/.genesis/lockfile'. Maybe the last upgrade didn't finish?";
+}
+
+# MAKE SURE THE .genisis DIR EXISTS
+if (! -d '/home/code/.genesis') {
+	safesys("sudo -u code mkdir -p /home/code/.genesis");
+}
+
+# CREATE A LOCKFILE
+safesys("sudu -u code touch /home/code/.genesis/lockfile");
+
+# WHAT IS OUR LAST RELEASE?
+my $last_release_file = "/home/code/.genesis/current_release";
+
+my $last_release = '';
+if (-e $last_release_file) {
+	open my $fh, $last_release_file;
+	$last_release = <$fh>;
+	chomp $last_release;
+	close $fh;
+}
+
+# CHANGE OUR WORKING DIR
+chdir("/home/code/repo");
+
+# FETCH LATEST INTO THE REPO
+safesys("sudo -u code git fetch") unless $f_nofetch;
+
+# FIGURE OUT WHICH RELEASES EXIST
+my $tags = `sudo -u code git tag -l`;
+chomp $tags;
+
+# FIGURE OUT WHICH TAGS TO ACTUALLY APPLY FOR EACH RELEASE
+my @releases_to_run;
+foreach my $tag (sort split "\n", $tags) {
+	if ($tag =~ m/^release-(\d+)/) {
+		my $release = $1;
+		if ($release > $last_release) {
+			if (@releases_to_run > 0 && $release == $releases_to_run[-1][1]) {
+				pop @releases_to_run;
+			}
+			push @releases_to_run, [$tag, $release];
+		}
+	}
+}
+
+# HANDLE EACH OF THE RELEASES
+foreach (@releases_to_run) {
+	handle_release(@$_);
+}
+
+# REMOVE THE LOCKFILE
+safesys("sudu -u code rm /home/code/.genesis/lockfile");
+
+sub handle_release {
+	my ($tag, $release) = @_;
+	
+	print "-- MIGRATING TO RELEASE $tag\n";
+
+	safesys("sudo -u code git checkout release");
+	safesys("sudo -u code git reset --hard $tag");
+	
+	foreach my $migration (sort glob "./migrations/$release-*") {
+		print "-- MIGRATION $migration\n";
+		safesys($migration);
+	}
+
+	safesys("sudo -u code -s 'echo $release > $last_release_file'");
+	
+	print "-- SUCCESSFULLY MIGRATED TO RELEASE $tag\n\n";
+}
+
+sub safesys {
+	my $exit_code = system(@_);
+	if ($exit_code != 0) {
+		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+	}
+	return undef;
+}
