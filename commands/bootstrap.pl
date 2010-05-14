@@ -40,7 +40,7 @@ sub safesys {
 	print '> ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
-		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+		die "exit code: $exit_code\n$!";
 	}
 	return undef;
 }

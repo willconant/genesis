@@ -36,7 +36,6 @@ sub run {
 	safesys("rm bootstrap.pl");
 	
 	# UPGRADE THE CORE SOFTWARE
-	print "-- UPGRADING CORE SOFTWARE\n";
 	safesys("apt-get update -y");
 	safesys("apt-get upgrade -y");
 	
@@ -68,8 +67,8 @@ sub run {
 	safesys("ln -s /home/agent-genesis/repo/environments/$environment /home/agent-prime/environment");
 	
 	# CREATE THE FIRST ADMIN USER
-	safesys("useradd -s /bin/bash -m -g access-admin -G sudo,access-genesis,access-agent admin-$admin_username");
-	print "-- ENTER PASSWORD FOR admin-$admin_username\n";
+	safesys("useradd -s /bin/bash -m -g access-admin -G sudo,access-genesis,access-prime admin-$admin_username");
+	safesys("chmod 750 /home/admin-$admin_username");
 	safesys("passwd admin-$admin_username");
 	
 	# AND WE'RE DONE!
@@ -83,7 +82,7 @@ sub safesys {
 	print '> ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
-		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+		die "exit code: $exit_code\n$!";
 	}
 	return undef;
 }

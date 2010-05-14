@@ -30,7 +30,7 @@ if (! -d '/home/agent-genesis/.genesis') {
 }
 
 # CREATE A LOCKFILE
-safesys("sudu -u agent-genesis touch /home/agent-genesis/.genesis/lockfile");
+safesys("sudo -u agent-genesis touch /home/agent-genesis/.genesis/lockfile");
 
 # WHAT IS OUR LAST RELEASE?
 my $last_release_file = "/home/agent-genesis/.genesis/current_release";
@@ -73,7 +73,7 @@ foreach (@releases_to_run) {
 }
 
 # REMOVE THE LOCKFILE
-safesys("sudu -u agent-genesis rm /home/agent-genesis/.genesis/lockfile");
+safesys("sudo -u agent-genesis rm /home/agent-genesis/.genesis/lockfile");
 
 sub handle_release {
 	my ($tag, $release) = @_;
@@ -97,7 +97,7 @@ sub safesys {
 	print '> ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
-		die join(' ', @_) . "\nexit code: $exit_code\n$!";
+		die "exit code: $exit_code\n$!";
 	}
 	return undef;
 }
