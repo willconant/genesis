@@ -13,17 +13,17 @@ if (! -e "/root/.ssh/id_rsa.pub") {
 	print "-- GENERATING RSA KEY FOR USE WITH REMOTE GIT REPO\n";
 	safesys("ssh-keygen -t rsa -C genesis-deployment");
 	
-	print "\n-- FINISHED. NEXT STEPs:\n";
+	print "\n-- FINISHED. NEXT STEPS:\n";
 	print "1) Add the following key to github:\n\n";
 	safesys("cat /root/.ssh/id_rsa.pub");
-	print "\n2) \$ ./bootstrap <git-repo-url>\n";
+	print "\n2) \$ perl bootstrap.pl <git-repo-url>\n";
 	exit;
 }
 
 # WE DO HAVE A KEY, LET'S GET THE REPO
 my ($git_repo) = @ARGV;
 if ($git_repo eq '') {
-	print STDERR "usage: ./bootstrap <git-repo-url>\n";
+	print STDERR "usage: perl bootstrap.pl <git-repo-url>\n";
 	exit(1);
 }
 
@@ -37,7 +37,7 @@ print "-- FINISHED. NEXT STEP:\n";
 print "\$ ./repo/commands/install -e [development|production] -a <your-username>\n";
 
 sub safesys {
-	print '$ ', join(' ', @_), "\n";
+	print '> ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
 		die join(' ', @_) . "\nexit code: $exit_code\n$!";

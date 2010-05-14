@@ -7,7 +7,7 @@ use autodie qw(:default);
 run();
 
 sub run {
-	if (`id -u` ne '0') {
+	if (`id -u` !~ m/^0\s*$/) {
 		die "you must run this as root";
 	}
 
@@ -80,7 +80,7 @@ sub run {
 }
 
 sub safesys {
-	print '$ ', join(' ', @_), "\n";
+	print '> ', join(' ', @_), "\n";
 	my $exit_code = system(@_);
 	if ($exit_code != 0) {
 		die join(' ', @_) . "\nexit code: $exit_code\n$!";
