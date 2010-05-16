@@ -55,7 +55,6 @@ sub run {
 	safesys("mv .ssh/id_rsa.pub /home/agent-genesis/.ssh/");
 	safesys("chown agent-genesis:access-genesis /home/agent-genesis/.ssh/id_rsa");
 	safesys("chown agent-genesis:access-genesis /home/agent-genesis/.ssh/id_rsa.pub");
-	safesys("chmod 750 /home/agent-genesis/.ssh");
 	
 	# CREATE A RELEASE BRANCH IN THE REPO
 	chdir("/home/agent-genesis/repo");
